@@ -28,12 +28,42 @@ app.post("/consumer", async (req, res) => {
     res.json({ sdp: peer.localDescription });
 });
 
+app.post("/consumer", async (req, res) => {
+    const { body } = req;
+    const peer = new wrtc.RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.stunprotocol.org" }]
+    });
+    
+    // IMPORTANT: Wait for ICE candidates before sending response
+    peer.onicegatheringstatechange = () => {
+        if (peer.iceGatheringState === 'complete') {
+            res.json({ sdp: peer.localDescription });
+        }
+    };
+
+    const desc = new wrtc.RTCSessionDescription(body.sdp);
+    await peer.setRemoteDescription(desc);
+    
+    if (senderStream) {
+        senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
+    }
+    
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+});
+
 app.post('/broadcast', async (req, res) => {
     const { body } = req;
     const peer = new wrtc.RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.stunprotocol.org" }]
     });
     
+    peer.onicegatheringstatechange = () => {
+        if (peer.iceGatheringState === 'complete') {
+            res.json({ sdp: peer.localDescription });
+        }
+    };
+
     peer.ontrack = (e) => {
         senderStream = e.streams[0];
     };
@@ -43,9 +73,8 @@ app.post('/broadcast', async (req, res) => {
     
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
-    
-    res.json({ sdp: peer.localDescription });
 });
+
 
 // FIX: Use 'app.listen' instead of 'server.listen'
 const port = process.env.PORT || 8000; 
