@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
-const wrtc = require('@roamhq/wrtc');
+const wrtc = require('@roamhq/wrtc'); // Use wrtc consistently
 
 let senderStream;
 
@@ -9,49 +9,47 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.post("/consumer", async ({ body }, res) => {
-    const peer = new webrtc.RTCPeerConnection({
-        iceServers: [
-            {
-                urls: "stun:stun.stunprotocol.org"
-            }
-        ]
+app.post("/consumer", async (req, res) => {
+    const { body } = req;
+    const peer = new wrtc.RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.stunprotocol.org" }]
     });
-    const desc = new webrtc.RTCSessionDescription(body.sdp);
+    
+    const desc = new wrtc.RTCSessionDescription(body.sdp);
     await peer.setRemoteDescription(desc);
-    senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
+    
+    if (senderStream) {
+        senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
+    }
+    
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
-    const payload = {
-        sdp: peer.localDescription
-    }
-
-    res.json(payload);
+    
+    res.json({ sdp: peer.localDescription });
 });
 
-app.post('/broadcast', async ({ body }, res) => {
-    const peer = new webrtc.RTCPeerConnection({
-        iceServers: [
-            {
-                urls: "stun:stun.stunprotocol.org"
-            }
-        ]
+app.post('/broadcast', async (req, res) => {
+    const { body } = req;
+    const peer = new wrtc.RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.stunprotocol.org" }]
     });
-    peer.ontrack = (e) => handleTrackEvent(e, peer);
-    const desc = new webrtc.RTCSessionDescription(body.sdp);
+    
+    peer.ontrack = (e) => {
+        senderStream = e.streams[0];
+    };
+
+    const desc = new wrtc.RTCSessionDescription(body.sdp);
     await peer.setRemoteDescription(desc);
+    
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
-    const payload = {
-        sdp: peer.localDescription
-    }
-
-    res.json(payload);
+    
+    res.json({ sdp: peer.localDescription });
 });
 
-function handleTrackEvent(e, peer) {
-    senderStream = e.streams[0];
-};
+// FIX: Use 'app.listen' instead of 'server.listen'
+const port = process.env.PORT || 8000; 
 
-
-app.listen(5000, () => console.log('server started'));
+app.listen(port, "0.0.0.0", () => {
+    console.log(`Server started on port ${port}`);
+});
