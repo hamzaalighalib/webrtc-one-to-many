@@ -1,19 +1,13 @@
 {
-  "name": "webrtc-live-stream",
+  "name": "webrtc-one-to-many",
   "version": "1.0.0",
-  "description": "One-to-many live streaming system",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "body-parser": "^1.20.2",
     "socket.io": "^4.7.5",
     "@roamhq/wrtc": "^0.9.1"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
