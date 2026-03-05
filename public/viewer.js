@@ -26,14 +26,35 @@ function createPeer() {
 async function handleNegotiationNeededEvent(peer) {
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
+
+    // FIX: Wait for ICE gathering to complete before sending the payload
+    // Without this, the server gets an SDP without network info
+    const iceGatheringPromise = new Promise((resolve) => {
+        if (peer.iceGatheringState === 'complete') {
+            resolve();
+        } else {
+            const checkState = () => {
+                if (peer.iceGatheringState === 'complete') {
+                    peer.removeEventListener('icegatheringstatechange', checkState);
+                    resolve();
+                }
+            };
+            peer.addEventListener('icegatheringstatechange', checkState);
+        }
+    });
+
+    await iceGatheringPromise;
+
     const payload = {
         sdp: peer.localDescription
     };
 
-    const { data } = await axios.post('/consumer', payload);
+    // Make sure your server.js is also updated to wait for ICE!
+    const { data } = await axios.post('/broadcast', payload); // or '/consumer'
     const desc = new RTCSessionDescription(data.sdp);
     peer.setRemoteDescription(desc).catch(e => console.log(e));
 }
+
 
 function handleTrackEvent(e) {
     document.getElementById("video").srcObject = e.streams[0];
